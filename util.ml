@@ -39,7 +39,7 @@ end
 
 
 (* Fonction dichotomique qui prend en argument un tableau t de bornes d'intervalles d'éléments de type 'a classés par ordre lexicographique croissant et associe à l'élément s de type 'a le numéro de l'intervalle auquel il appartient, entre b1 et b2. *)
-let rec dicho_bornes (t : 'a vect) (s : 'a) (b1 : int) (b2 : int) =
+let rec dicho_bornes (t : 'a array) (s : 'a) (b1 : int) (b2 : int) =
   let m = (b1 + b2) / 2
   in if b1 == m
      then b1
