@@ -1,38 +1,34 @@
-module type TblConf = struct
+module type Conf = sig
     val chain_length: int
     val chain_number: int
-    val hash_fun: string -> string
-    val rdx_fun: string -> string
+    val collision_prob: float
+    val charset: string
+    val pw_length: int
+    val hash_fun: string
+    val server_addr: Unix.addr_inet
+    val server_port: int
+    val slave_n: int
 end
 
-module TblWork(Conf:TblConf) = struct
-    open Conf
 
-    (** renvoie le dernier pw de la chaine [i;j[ commencant par [seed]. *)
-    let rec chain pw i j =
-        if i = j then pw
-        else gen_chain (rdx_fun i (hash_fun seed)) (i + 1) j
+module Make(C:Conf) = struct
+    module TblConf = struct
+        let h_length, hash_fun = Hashtbl.get Table.hash_funs C.hash_fun
+        let rdx_fun = Table.mk_rdx C.charset C.pw_length h_length
+        let chain_length = C.chain_length
+    end
 
-    let chain_of_seed seed =
-        let first = rdx seed in
-        (first, chain first 0 chain_length)
+    module Core = Table.Core(TblConf)
 
-    let rec recover_aux hash i seeds acc = match seeds with
-    | [] -> acc
-    | x :: xs ->
-        let pw = gen_chain x 0 i in
-        if hash_fun pw = hash
-            then recover hash i xs (pw :: acc)
-            else recover hash i xs acc
+    let tbl = Hashtbl.create C.chain_number
+    let buckets = Array.create C.slave_n []
 
-    let recover hash i seeds = recover_aux hash i seeds []
-
-    let rec crack_aux tbl hash i =
-        let last = gen_chain (rdx_fun i hash) (i + 1) chain_length in
-        let seeds = Hashtbl.find_all tbl last in
-        let pws = recover hash i seeds in
-        if pws <> [] then Some pws
-        else if i = 0 then None else crack_aux tbl hash (i - 1)
-
-    let crack tbl hash = crack_aux tbl hash (chain_length - 1)
+    (** Return true if chain added to the table, else (if end point was
+        already present) returns false. *)
+    let gen_chain seed =
+        let last = Core.full_chain seed in
+        if not (Hashtbl.mem tbl last) || ((Random.float 1.) <= C.collision_prob) then
+            Hashtbl.add seed last;
+            true
+        else false
 end
