@@ -92,3 +92,18 @@ let decoupage (t : int) (m : int) (f : int)=
   bornes_str;;
 
 (*test : decoupage 20 10 100;; *)
+
+
+(* Fonction dichotomique qui prend en argument un tableau t de bornes d'intervalles d'éléments de type 'a classés par ordre lexicographique croissant et associe à l'élément s de type 'a le numéro de l'intervalle auquel il appartient, entre b1 et b2. *)
+let rec dicho_bornes_aux (t : 'a array) (s : 'a) (b1 : int) (b2 : int) =
+  let m = (b1 + b2) / 2
+  in if b1 == m
+     then b1
+     else if s < t.(m)
+          then dicho_bornes_aux t s b1 m
+          else dicho_bornes_aux t s m b2;;
+
+let dicho_bornes (t : 'a array) (s : 'a) = dicho_bornes_aux t s 0 (Array.length t - 1);;
+
+(* test : dicho_bornes [| 0; 10; 20; 30; 40; 50; 60; 70; 80; 90; 100 |] 42;; *)
+(* test : dicho_bornes [| "aaaa"; "dddd"; "llll"; "oooo"; "ssss"; "zzzz" |] "ozaml" 0 5;; *)
