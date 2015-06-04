@@ -1,34 +1,39 @@
-module type Conf = sig
-    val chain_length: int
-    val chain_number: int
-    val collision_prob: float
+module type Conf = struct
+    val hash_fun: string
     val charset: string
     val pw_length: int
-    val hash_fun: string
-    val server_addr: Unix.addr_inet
-    val server_port: int
-    val slave_n: int
+    val chain_number: int
+    val slices: string array
+    val TODO
 end
-
 
 module Make(C:Conf) = struct
     module TblConf = struct
-        let h_length, hash_fun = Hashtbl.get Table.hash_funs C.hash_fun
-        let rdx_fun = Table.mk_rdx C.charset C.pw_length h_length
+        let rdx_fun = Table.make_rdx C.charset C.pw_length
+        let hash_fun = Hashtbl.get Table.hash_funs C.hash_fun
         let chain_length = C.chain_length
     end
+    let module MyTable = Table.Make(TblConf)
 
-    module Core = Table.Core(TblConf)
+    let gen_array = Array.create (Array.length C.slices) []
+    let gen_load = ref 0
 
-    let tbl = Hashtbl.create C.chain_number
-    let buckets = Array.create C.slave_n []
+    let generation_work (seed: string) =
+        if !gen_load > imax then
+            gen_load := 0;
+            for k = 0 to Array.length gen_array - 1 do
+                append ("data"^(string_of_int k)^".txt") gen_array.(k);
+                gen_array.(k) <- [];
+            done;
+        else ();
+        let last = MyTable.full_chain seed in
+        let i = Util.dicho_bornes C.slices last in
+        gen_array.(i) <- (last, seed) :: gen_array.(i);
+        gen_load := !gen_load + 1;;
 
-    (** Return true if chain added to the table, else (if end point was
-        already present) returns false. *)
-    let gen_chain seed =
-        let last = Core.full_chain seed in
-        if not (Hashtbl.mem tbl last) || ((Random.float 1.) <= C.collision_prob) then
-            Hashtbl.add seed last;
-            true
-        else false
+    let search_gen_work (hash, col) =
+        (hash, col, MyTable.chain hash col (chain_length - col - 1))
+
+    let current_slice = Hashtbl.create C.
+    let load_slice n = Util.load_table
 end
