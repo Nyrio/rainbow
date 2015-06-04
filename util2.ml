@@ -15,16 +15,5 @@ let append (filename : string) (hashs : (string*string) list) =
 
 (* fonction enregistrant une chaîne, c'est-à-dire un couple (last,seed) dans
 la liste appropriee de out_array selon le découpage slices *)
-let register_chain (slices : string array) (out_array : (string*string) list array) (i : int ref) (imax : int) (seed : string) =
-  if !i > imax then
-    (i = ref 0;
-    for k = 0 to Array.length out_array - 1 do
-      append ("data"^(string_of_int k)^".txt") out_array.(k);
-      out_array.(k) <- [];
-    done)
-  else
-    let last = Util.full_chain seed
-    in let morceau = Decoup.dicho_bornes slices last
-       in out_array.(morceau) <- (last,seed)::out_array.(morceau);
-          i := !i + 1;;
+
   

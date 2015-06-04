@@ -1,33 +1,39 @@
-module type ChainConf = struct
-    val chain_length: int
-    val chain_number: int
-    val hash_fun: string -> string
-    val rdx_fun: string -> string
+module type Conf = struct
+  val hash_fun: string
+  val charset: string
+  val pw_length: int
+  val chain_number: int
+  val slices: string array
+  val TODO
 end
 
-module Chain(Conf:ChainConf) = struct
-    open Conf
+module Make(C:Conf) = struct
+  module TblConf = struct
+    let rdx_fun = Table.make_rdx C.charset C.pw_length
+    let hash_fun = Hashtbl.get Table.hash_funs C.hash_fun
+    let chain_length = C.chain_length
+  end
+  let module MyTable = Table.Make(TblConf)
 
-    (** renvoie le dernier pw de la chaine [i;j[ commencant par [seed]. *)
-    let rec gen_chain seed i j =
-        assert ((0 <= i) && (i <= j) && (j <= chain_length));
-        if i = j then seed
-        else gen_chain (rdx_fun i (hash_fun seed)) (i + 1) j
+  let gen_array = Array.create (Array.length C.slices) []
+  let gen_load = ref 0
 
-    let recover_aux hash seed i =
-        let pw = gen_chain seed 0 i in
-        if hash_fun pw = hash then Some pw else None
-    
-    let rec recover hash i seeds acc = match seeds with
-    | [] -> acc
-    | x :: xs ->
-        let pw_opt = recover_aux hash x i in
-        match pw_opt with
-        | None -> recover hash i xs acc
-        | Some pw -> recover hash i xs (pw :: acc)
+  let generation_work (seed: string) =
+    if !gen_load > imax then
+      gen_load := 0;
+      for k = 0 to Array.length gen_array - 1 do
+        append ("data"^(string_of_int k)^".txt") gen_array.(k);
+        gen_array.(k) <- [];
+      done
+    else
+      let last = MyTable.full_chain seed in
+      let i = Util.dicho_bornes C.slices last in
+      gen_array.(i) <- (last, seed) :: gen_array.(i);
+      gen_load := !gen_load + 1;;
+  
+  let search_gen_work (hash, col) =
+    (hash, col, MyTable.chain hash col (chain_length - col - 1))
 
-    let rec crack_aux tbl hash i =
-        assert ((0 <= i) && (i < chain_length));
-        let last = gen_chain (rdx_fun i hash) (i + 1) chain_length in
-        
+  let current_slice = Hashtbl.create C.
+  let load_slice n = Util.load_table
 end
