@@ -1,10 +1,14 @@
-module type Conf = struct
+module type Conf = sig
     val hash_id: string
     val pw_charset: string
     val pw_len: int
     val chain_n: int
     val slices: string array
     val max_chains_in_mem: int
+    val slave_fifos : JoinFifo.t array
+    val master_fifo : JoinFifo.t
+    val result_table : (string option) array
+    val counter : Util.counter
 end
 
 module Make(C:Master.Conf) = struct
