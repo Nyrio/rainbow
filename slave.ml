@@ -1,13 +1,13 @@
 module type Conf = struct
-    val hash_fun: string
-    val charset: string
-    val pw_length: int
-    val chain_number: int
+    val hash_id: string
+    val pw_charset: string
+    val pw_len: int
+    val chain_n: int
     val slices: string array
     val max_chains_in_mem: int
 end
 
-module Make(C:Conf) = struct
+module Make(C:Master.Conf) = struct
     module TblConf = struct
         let rdx_fun = Table.make_rdx C.charset C.pw_length
         let hash_fun = Hashtbl.get Table.hash_funs C.hash_fun
