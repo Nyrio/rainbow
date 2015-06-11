@@ -4,7 +4,7 @@ module type Conf = struct
     val pw_length: int
     val chain_number: int
     val slices: string array
-    val TODO
+    val max_chains_in_mem: int
 end
 
 module Make(C:Conf) = struct
@@ -22,18 +22,18 @@ module Make(C:Conf) = struct
         if !gen_load > imax then
             gen_load := 0;
             for k = 0 to Array.length gen_array - 1 do
-                append ("data"^(string_of_int k)^".txt") gen_array.(k);
+                append (Printf.sprintf "data%i.txt" n) gen_array.(k);
                 gen_array.(k) <- [];
             done;
         else ();
         let last = MyTable.full_chain seed in
-        let i = Util.dicho_bornes C.slices last in
+        let i = Util.bisect C.slices last in
         gen_array.(i) <- (last, seed) :: gen_array.(i);
         gen_load := !gen_load + 1;;
 
     let search_gen_work (hash, col) =
         (hash, col, MyTable.chain hash col (chain_length - col - 1))
 
-    let current_slice = Hashtbl.create C.
-    let load_slice n = Util.load_table
+    let current_slice = Hashtbl.create C.max_chains_in_mem
+    let load_slice n = MyTable.load current_slice (Printf.sprintf "data%i.txt" n)
 end
