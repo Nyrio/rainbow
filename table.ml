@@ -8,7 +8,7 @@ module type Conf = struct
 end
 
 
-module Core(C:Conf) = struct
+module Make(C:Conf) = struct
     open C
 
     (** Calcule la [n]-ieme iteration de (hash o rdx i) en commencant par
