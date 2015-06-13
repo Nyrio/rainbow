@@ -101,10 +101,15 @@ fichier nommé filename, avec le format "chaine1;chaine2\n". *)
 let append (filename : string) (hashs : (string*string) list) =
   let chan = open_out_gen [Open_creat; Open_append] 6 filename
   in append_aux chan hashs;
-  close_out chan;;
+     close_out chan;;
+
+let dump (filename : string) (table : (string, string) Hashtbl.t) =
+  let chan = open_out_gen [Open_creat; Open_append] 6 filename
+  in Hashtbl.iter (Printf.fprintf chan "%s;%s\n") table;
+     close_out chan;;
 
 
-(* Chargement de la table. *)
+(** Chargement de la table. *)
 let rec load_aux in_chan tbl =
     try
         let line = Scanf.fscanf in_chan "%s\n" (fun x -> x) in
