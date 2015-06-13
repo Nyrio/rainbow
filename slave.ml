@@ -27,6 +27,7 @@ module Make(C:Master.Conf) = struct
       let last = MyTable.full_chain seed
       in Hashtbl.add table last seed
 
+
     let search_work table = match C.slave_fifos.(myid).get () with
       | None -> (match C.master_fifo.get () with
 		 | None -> if C.counter.get () <= 0 then ()
