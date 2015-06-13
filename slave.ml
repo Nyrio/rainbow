@@ -22,21 +22,10 @@ module Make(C:Master.Conf) = struct
     end
     let module MyTable = Table.Make(TblConf)
 
-    let gen_array = Array.create (Array.length C.slices) []
-    let gen_load = ref 0
 
-    let generation_work (seed: string) =
-        if !gen_load > imax then
-            gen_load := 0;
-            for k = 0 to Array.length gen_array - 1 do
-                append (Printf.sprintf "data%i.txt" n) gen_array.(k);
-                gen_array.(k) <- [];
-            done;
-        else ();
-        let last = MyTable.full_chain seed in
-        let i = Util.bisect C.slices last in
-        gen_array.(i) <- (last, seed) :: gen_array.(i);
-        gen_load := !gen_load + 1
+    let generation_work (table : (string, string) Hashtbl.t) (seed: string) =
+      let last = MyTable.full_chain seed
+      in Hashtbl.add table last seed
 
     let search_work table = match C.slave_fifos.(myid).get () with
       | None -> (match C.master_fifo.get () with
