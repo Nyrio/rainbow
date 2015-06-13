@@ -123,5 +123,5 @@ let rec load_aux in_chan tbl =
 
 
 let load tbl file =
-    let in_chan = open_in file in
-    load_all_lines in_chan tbl;
+  let in_chan = open_in file
+  in load_all_lines in_chan tbl
