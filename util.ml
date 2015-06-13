@@ -1,18 +1,18 @@
-type counter = {inc: unit Join.chan; dec: unit Join.chan; get: unit -> int}
+type counter = {incr: unit Join.chan; decr: unit Join.chan; get: unit -> int}
 
 let create_counter () =
-    def state(n) & inc() = state(n + 1)
-      & state(n) & dec() = state(n - 1)
-      & state(n) & get() = state(n) & reply n to get in
+    def state(n) & incr() = state(n + 1)
+      or state(n) & decr() = state(n - 1)
+      or state(n) & get() = state(n) & reply n to get in
     spawn state(0);
-    {inc; dec; get}
+    {incr; decr; get}
 
 
-type 'a async_array = {get: int -> 'a; put: int * 'a Join.chan}
+type 'a async_array = {get: int -> 'a; put: (int * 'a) Join.chan}
 
 let create_async_array size init =
     def state(a) & get(i) = state(a) & reply a.(i) to get
-      & state(a) & put(i, x) = a.(i) <- x; state(a) in
+      or state(a) & put(i, x) = a.(i) <- x; state(a) in
     spawn state(Array.create size init);
     {get; put}
 
@@ -110,7 +110,7 @@ let rec choose_pow (t : int) (m : int) (p : int) (pp : int) (f : int) (ff : int)
     intervalles. *)
 let slice (t : int) (m : int) (f : int)=
     let p, pp, d, r = choose_pow t m 0 1 f (f*m)
-    in let q, h =  (t - p)/4,  pow 2 ((t - p) mod 4) 1
+    in let q, h =  (t - p)/4,  pow 2 ((t - p) mod 4)
     in let h1, h2 = mult_hex_pow_2 h q d, mult_hex_pow_2 h q (d+1)
     in let bornes_int = Array.of_list (gen_bounds (m-r) r h1 h2
         (Array.make (Array.length h1) 0))
