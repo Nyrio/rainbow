@@ -1,3 +1,22 @@
+type counter = {inc: unit Join.chan; dec: unit Join.chan; get: unit -> int}
+
+let create_counter () =
+    def state(n) & inc() = state(n + 1)
+      & state(n) & dec() = state(n - 1)
+      & state(n) & get() = state(n) & reply n to get in
+    spawn state(0);
+    {inc; dec; get}
+
+
+type 'a async_array = {get: int -> 'a; put: int * 'a Join.chan}
+
+let create_async_array size init =
+    def state(a) & get(i) = state(a) & reply a.(i) to get
+      & state(a) & put(i, x) = a.(i) <- x; state(a) in
+    spawn state(Array.create size init);
+    {get; put}
+
+
 (* Découpage de l'intervalle de hashs. *)
 
 (** Transforme un chiffre hexadécimal en caractère. *)
