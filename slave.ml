@@ -4,11 +4,14 @@ module type Conf = sig
     val pw_len: int
     val chain_n: int
     val slices: string array
+    val chain_length : int
     val max_chains_in_mem: int
-    val slave_fifos : JoinFifo.t array
-    val master_fifo : JoinFifo.t
-    val result_table : (string option) array
+    val slave_fifos : (int * string) JoinFifo.t array
+    val master_fifo : (int * int) JoinFifo.t
+    val result_table : (string option) Util.async_array
     val counter : Util.counter
+    val hash_table : string array
+    val myid : int
 end
 
 module Make(C:Master.Conf) = struct
@@ -33,11 +36,25 @@ module Make(C:Master.Conf) = struct
         let last = MyTable.full_chain seed in
         let i = Util.bisect C.slices last in
         gen_array.(i) <- (last, seed) :: gen_array.(i);
-        gen_load := !gen_load + 1;;
+        gen_load := !gen_load + 1
 
-    let search_gen_work (hash, col) =
-        (hash, col, MyTable.chain hash col (chain_length - col - 1))
-
-    let current_slice = Hashtbl.create C.max_chains_in_mem
-    let load_slice n = MyTable.load current_slice (Printf.sprintf "data%i.txt" n)
+    let search_work table = match C.slave_fifos.(myid).get () with
+      | None -> (match C.master_fifo.get () with
+		 | None -> if C.counter.get () <= 0 then ()
+			   else search_work table
+		 | Some (hashid, col) ->
+		    C.counter.incr ();
+		    let hash = C.hash_table.(hashid)
+  		    in let last = MyTable.Chain hash col (C.chain_length - col)
+		       in for i = 0 to Array.length C.slave_fifos -1 do
+			    C.slave_fifos.(i).put (hashid, col, last)
+			  done;
+			  C.counter.decr ();
+			  search_work table)
+      | Some (hashid, col, last) ->
+	 let firsts = Hashtbl.findall table last
+	 in match MyTable.recover C.hash_table.(hashid) col firsts with
+	    | None -> C.search_work table
+	    | Some pw -> C.result_table.put (i, pw)
+				   
 end
