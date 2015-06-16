@@ -1,3 +1,4 @@
+(** Compteur imperatif concurrent. *)
 type counter = {incr: unit Join.chan; decr: unit Join.chan; get: unit -> int}
 
 let create_counter () =
@@ -8,6 +9,30 @@ let create_counter () =
     {incr; decr; get}
 
 
+(** File semi-persistante: la file est modifiable, donc imperative,
+    de par l'ajout, cependant l'operation pop ne detruit pas la file:
+    plusieurs clients peuvent consommer la queue a des vitesses
+    differentes. *)
+type 'a queue = {contents: 'a option; mutable next: 'a queue option}
+
+(** Cree une file vide. *)
+let create () = {contents = None; next = None}
+
+(** [ajoute last x] ajoute un [x] a la fin de la file dont le dernier
+    element est [last] et renvoie le nouveau dernier element. *)
+let append last x =
+  let node = {contents = Some x; next = None} in
+  last.next <- Some node;
+  node
+
+(** Enleve et renvoie le premier element de la queue ainsi que la suite
+    de la queue (sorte de decoupage head/tail). *)
+let pop queue = match queue.next with
+| None -> (None, queue)
+| Some node -> (node.contents, node)
+
+
+(** Tableau avec acces concurrent. *)
 type 'a async_array = {get: int -> 'a; put: (int * 'a) Join.chan}
 
 let create_async_array size init =
