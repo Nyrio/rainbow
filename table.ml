@@ -30,6 +30,9 @@ module Make(C:Conf) = struct
         let pw = rdx_fun i (chain x 0 i) in
         if hash_fun pw = hash then Some pw else recover hash i xs
 
+    (** Calcule le dernier element de la chaine dont le ieme element est hash. *)
+    let get_last hash i = chain hash col i (chain_length - i - 1)
+
     (** Cherche si [hash] est dans la colonne [i] de la table (ie le pw
         recherche est la reduction du hash de la colonne [i - 1]).
         [get_first] est une fonction qui a un hash associe une liste

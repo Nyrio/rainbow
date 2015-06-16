@@ -28,23 +28,34 @@ module Make(C:Master.Conf) = struct
       in Hashtbl.add table last seed
 
 
-    let search_work table = match C.slave_fifos.(myid).get () with
-      | None -> (match C.master_fifo.get () with
-		 | None -> if C.counter.get () <= 0 then ()
-			   else search_work table
-		 | Some (hashid, col) ->
-		    C.counter.incr ();
-		    let hash = C.hash_table.(hashid)
-  		    in let last = MyTable.Chain hash col (C.chain_length - col)
-		       in for i = 0 to Array.length C.slave_fifos -1 do
-			    C.slave_fifos.(i).put (hashid, col, last)
-			  done;
-			  C.counter.decr ();
-			  search_work table)
-      | Some (hashid, col, last) ->
-	 let firsts = Hashtbl.findall table last
-	 in match MyTable.recover C.hash_table.(hashid) col firsts with
-	    | None -> C.search_work table
-	    | Some pw -> C.result_table.put (i, pw)
-				   
+    let search_start hashs hashs_results counter master_q slaves_q slaves_add table =
+        let rec search_work slaves_q =
+            let elt, slaves_tl = Util.pop slaves_q in
+            match elt with
+    	    | None ->
+	       (* je n'ai plus de fin de chaine a chercher, il faut demander au master
+               la prochaine fin de chaine a calculer *)
+	       (match master_q.get () with
+  		| None ->
+		   (* le master n'a rien a proposer, peut-etre que des slaves sont en
+                   train de calculer les dernieres fins, d'ou la verification du
+                   compteur *)
+	           if counter.get () <= 0 then ()
+	           else search_work slaves_tl
+	       | Some (hashid, col) ->
+	          counter.incr ();
+	          let last = T.get_last hashs.(hashid) col in
+		  spawn slaves_add (hashid, col, last);
+		  counter.decr ();
+		  search_work slaves_tl)
+	    | Some (hashid, col, last) ->
+	        (* verifier si j'ai le hash dans ma table, si oui verifier si ce n'est
+                pas une fausse alerte*)
+	        let firsts = Hashtbl.findall table last in
+	        match T.recover hashs.(hashid) col firsts with
+	        | None -> search_work slaves_tl
+	        | Some pw ->
+		    hashs_results.put (hashid, Some pw);
+		    search_work slaves_tl in
+	search_work slaves_q
 end
