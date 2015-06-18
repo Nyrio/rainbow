@@ -2,7 +2,7 @@ open Cryptokit
 
 
 module type Conf = struct
-    val chain_length: int
+    val chain_len: int
     val hash_fun: string -> string
     val rdx_fun: int -> string -> string
 end
@@ -20,7 +20,7 @@ module Make(C:Conf) = struct
     | _ -> chain (hash_fun (rdx_fun i seed)) (i + 1) (n - 1)
 
     (** Calcule le dernier hash de la chaine commencant par [seed]. *)
-    let full_chain seed = chain seed 0 (chain_length - 1)
+    let full_chain seed = chain seed 0 chain_len
 
     (** Cherche pour chaque [x] dans [seeds] si la reduction du hash de la
         [i]-ieme colonne en partant de [x] est le pw correspondant a [hash]. *)
@@ -31,7 +31,7 @@ module Make(C:Conf) = struct
         if hash_fun pw = hash then Some pw else recover hash i xs
 
     (** Calcule le dernier element de la chaine dont le ieme element est hash. *)
-    let get_last hash i = chain hash col i (chain_length - i - 1)
+    let get_last hash i = chain hash col i (chain_len - i)
 
     (** Cherche si [hash] est dans la colonne [i] de la table (ie le pw
         recherche est la reduction du hash de la colonne [i - 1]).
@@ -41,15 +41,15 @@ module Make(C:Conf) = struct
     let rec crack_aux get_first hash i = match i with
     | 0 -> None
     | _ ->
-        let last = chain hash i (chain_length - i - 1) in
+        let last = chain hash i (chain_len - i) in
         let seeds = get_first last in
-        let pw = recover hash (i - 1) seeds in
+        let pw = recover hash i seeds in
         if pw <> None
             then pw
-            else crack_aux get_first hash (i - 1)
+            else crack_aux get_first hash i
 
     (** Cherche  le pw correspondant a [hash]. *)
-    let crack get_first hash = crack_aux get_first hash (chain_length - 1)
+    let crack get_first hash = crack_aux get_first hash (chain_len - 1)
 end
 
 
@@ -67,27 +67,15 @@ let make_rdx (charset: string) (length: int) (h_length: int) =
     fun salt h -> String.init length (init salt h)
 
 
-module type HashSize = sig
-    val n: int
-end
-
-
 (** Enumeration prenant en argument une seed et renvoyant n blocs de longueur
     Size.n du flot pseudo aleatoire RC4. *)
-module RC4SeedEnum(S:Size) = struct
-    let type t = string * int
-    let type elt = string
-    let type enum = transform * int
-
-    let start (seed, n) = (Cipher.arcfour seed Cipher.encrypt, n)
-
-    let null = String.make S.n '\000'
-    let step (arcfour, n) = match n with
-    | 0 -> None
-    | _ ->
-       let () = arcfour#put_string null in
-       Some (arcfour#get_string, arcfour)
-end
+let rc4seeds hash_size n =
+    let null = String.make hash_size '\000' in
+    {start = fun () ->
+        let seed = Random.random_string Random.secure_rng hash_size in
+        (Cipher.arcfour seed Cipher.encrypt, n);
+     step = fun (arc, 0) -> None
+        | (arc, n) -> arc#put_string null; Some (arc#get_string, (arc, n - 1))}
 
 
 (** Auxiliaire à append. *)

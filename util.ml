@@ -1,29 +1,42 @@
+let sleep (sec: float) =
+    ignore (Unix.select [] [] [] sec)
+
+
 (** Compteur imperatif concurrent. *)
-type counter = {incr: unit Join.chan; decr: unit Join.chan; get: unit -> int}
+type counter = {incr: unit-> unit; decr: unit-> unit; get: unit -> int}
 
 let create_counter () =
-    def state(n) & incr() = state(n + 1)
-      or state(n) & decr() = state(n - 1)
+    def state(n) & incr() = state(n + 1) & relpy to incr
+      or state(n) & decr() = state(n - 1) & reply to decr
       or state(n) & get() = state(n) & reply n to get in
     spawn state(0);
     {incr; decr; get}
 
 
-(** File semi-persistante: la file est modifiable, donc imperative,
-    de par l'ajout, cependant l'operation pop ne detruit pas la file:
-    plusieurs clients peuvent consommer la queue a des vitesses
-    differentes. *)
-type 'a queue = {contents: 'a option; mutable next: 'a queue option}
+module Queue = struct
+    (** File semi-persistante: la file est modifiable, donc imperative,
+        de par l'ajout, cependant l'operation pop ne detruit pas la file:
+        plusieurs clients peuvent consommer la queue a des vitesses
+        differentes. *)
+    type 'a t = {contents: 'a option; mutable next: 'a t option}
 
-(** Cree une file vide. *)
-let create () = {contents = None; next = None}
+    (** Cree une file vide. *)
+    let create () = {contents = None; next = None}
 
-(** [ajoute last x] ajoute un [x] a la fin de la file dont le dernier
-    element est [last] et renvoie le nouveau dernier element. *)
-let append last x =
-  let node = {contents = Some x; next = None} in
-  last.next <- Some node;
-  node
+    (** [ajoute last x] ajoute un [x] a la fin de la file dont le dernier
+        element est [last] et renvoie le nouveau dernier element. *)
+    let add last x =
+        let node = {contents = Some x; next = None} in
+        last.next <- Some node;
+        node
+end
+
+
+let create_async_queue () =
+    def last(node) & add(x) = last(Queue.add node x) & reply to add in 
+    let queue = Queue.create () in
+    spawn last(queue);
+    (queue, add)
 
 (** Enleve et renvoie le premier element de la queue ainsi que la suite
     de la queue (sorte de decoupage head/tail). *)
@@ -33,11 +46,11 @@ let pop queue = match queue.next with
 
 
 (** Tableau avec acces concurrent. *)
-type 'a async_array = {get: int -> 'a; put: (int * 'a) Join.chan}
+type 'a async_array = {get: int -> 'a; put: (int * 'a) -> unit}
 
 let create_async_array size init =
     def state(a) & get(i) = state(a) & reply a.(i) to get
-      or state(a) & put(i, x) = a.(i) <- x; state(a) in
+     or state(a) & put(i, x) = (a.(i) <- x; state(a)) & relpy to put in
     spawn state(Array.create size init);
     {get; put}
 
