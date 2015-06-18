@@ -1,3 +1,37 @@
+type config = {
+    master_port: int;
+    slaves: (string*int) list;
+    hash_fun: string;
+    chain_num: int;
+    chain_len: int;
+    charset: string;
+    ssh_user: string;
+    ssh_ident: string;
+    slave_exec: string;
+}
+
+let parse_slave (json : Yojson.Basic.json)  =
+    (json |> member "ip" |> to_string, json |> member "cores" |> to_string)
+
+
+let parse_conf (json_filename: string) =
+    let json_file = args.(0) in
+    let json = Yojson.Basic.from_file json_filename  in
+    let open Yojson.Basic.Util in
+    {port = json |> member "master_port" |> to_int;
+     slaves = json |> member "slaves" |> to_list |> List.map parse_slave;
+     hash_fun = json |> member "hash_fun" |> to_string;
+     chain_num = json |> member "chain_num" |> to_int;
+     chain_len = json |> member "chain_len" |> to_int;
+     charset = json |> member "charset" |> to_string;
+     pw_len = json |> member "pw_len" |> to_int;
+     ssh_user = json |> member "ssh_user" |> to_string;
+     ssh_ident = json |> member "ssh_ident" |> to_string;
+     slaver_exec = json |> member "slave_exec" |> to_string;
+     table_file = json |> member "table_file" |> to_int;
+}
+
+
 let rec start_slaves cmd slaves = match slaves with
 | [] -> ()
 | (ip, cnt) :: xs ->
@@ -11,7 +45,7 @@ let setup_ns master cfg =
                     hash_fun=cfg.hash_fun; chain_len=cfg.chain_len} in
     Join.Ns.register master "tbl_conf" tbl_conf;
     Join.Ns.register master "action" cmd;
-    Join.Ns.register master "table_file" cfg.filename;
+    Join.Ns.register master "table_file" cfg.table_file;
 
 let setup_generate master cfg =
     let (hash_size, _) = Hashtbl.find Table.hash_funs cfg.hash_fun in
@@ -40,6 +74,7 @@ let setup_search master hashs =
         results = Util.create_async_array (Array.length hashs) None} in
 
     Join.Ns.register master "search_vars" vars;
+    #TODO return wait function
 
 
 let usage () =
@@ -68,8 +103,8 @@ let () =
         setup_ns master cfg;
 
         let wait = match argv.(1) with
-                   | "generate" -> start_generate master;
-                   | "search" -> start_search master (hashs_list_of_stdin []) in
+                   | "generate" -> setup_generate master cfg;
+                   | "search" -> setup_search master (hashs_list_of_stdin []) in
 
         let cmd = (Printf.sprintf "ssh -i %s %s@%%s %s %s:%s" cfg.ssh_ident
                    cfg.ssh_user cfg.slave_exec ip cfg.master_port) in
