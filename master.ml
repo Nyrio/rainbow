@@ -1,24 +1,25 @@
-module type Conf = sig
-    val pw_charset: int
-    val pw_len: int
-end
+open Core.Std
 
 type config = {
-  pw_charset: string;
-  pw_len: int;
-
+  port: int;
+  slaves: (string*int) list;
+  hash_fun: string;
+  chain_num: int;
   chain_len: int;
-  chain_n: int;
-  slave_n: int;
-  max_chains_in_mem: int
+  charset: string;
 }
 
+let parse_conf (json_filename: string) =
+  let json_file = args.(0) in
+  let json = Yojson.Basic.from_file json_filename  in
+  let open Yojson.Basic.Util in
+  (
+    let port = json |> member "port" |> to_int in
+    let slaves = json |> member "slaves" |> to_list |>  in
+    let hash_fun = json |> member "hash_fun" |> to_string in
+    let chain_num = json |> member "chain_num" |> to_int in
+    let chain_len = json |> member "chain_len" |> to_int in
+    let charset = json |> member "charset" |> to_string in
+  )
 
-let wait () =
-  def x() & y()  = reply to x in x
-
-
-let start conf =
-  let slices = Util.create_slices conf.chain_n conf.max_chains_in_mem conf.slave_n in
-  let () = Join.Ns.register Join.Ns.here "slices" (slices: string array) in
-  def register_slave(slave)
+https://realworldocaml.org/v1/en/html/handling-json-data.html
