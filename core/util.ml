@@ -29,6 +29,12 @@ module Queue = struct
         let node = {contents = Some x; next = None} in
         last.next <- Some node;
         node
+
+    (** Enleve et renvoie le premier element de la queue ainsi que la suite
+        de la queue (sorte de decoupage head/tail). *)
+    let pop queue = match queue.next with
+    | None -> (None, queue)
+    | Some node -> (node.contents, node)
 end
 
 
@@ -37,12 +43,6 @@ let create_async_queue () =
     let queue = Queue.create () in
     spawn last(queue);
     (queue, add)
-
-(** Enleve et renvoie le premier element de la queue ainsi que la suite
-    de la queue (sorte de decoupage head/tail). *)
-let pop queue = match queue.next with
-| None -> (None, queue)
-| Some node -> (node.contents, node)
 
 
 (** Tableau avec acces concurrent. *)
