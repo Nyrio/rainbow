@@ -64,6 +64,7 @@ let setup_search master hashs =
     List.iter (fun x -> computing_q.put(x, chan)) hashs;
 
     let searching_q, searching_add = Util.create_async_queue () in
+    let counter = Util.create_counter ();
 
     let vars = {
         computing_q = JoinFifo.create ();
@@ -71,10 +72,12 @@ let setup_search master hashs =
         searching_add = searching_add;
         counter = Util.create_counter ();
         hashs = hashs;
-        results = Util.create_async_array (Array.length hashs) None} in
+        results = Util.create_async_array (Array.length hashs) None
+        } in
 
     Join.Ns.register master "search_vars" vars;
-    #TODO return wait function
+    #TODO return wait fnct
+
 
 
 let usage () =
@@ -108,4 +111,5 @@ let () =
 
         let cmd = (Printf.sprintf "ssh -i %s %s@%%s %s %s:%s" cfg.ssh_ident
                    cfg.ssh_user cfg.slave_exec ip cfg.master_port) in
-        start_slaves cmd cfg.slaves
+        start_slaves cmd cfg.slaves;
+        wait ()
