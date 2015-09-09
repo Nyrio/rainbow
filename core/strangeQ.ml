@@ -1,22 +1,16 @@
-type 'a t =
-    | End
-    | Node of {content: 'a; mutable next: 'a t}
+type 'a t = {content: 'a option; mutable next: 'a cell option}
 
-
-let empty = End
-
-
+let is_empty queue = queue.next = None
+				    
+let create () = {content = None; next = None}
+	      
 let add tail x =
-    let node = {content = x; next = End} in
-    tail.next <- node;
+    let node = {content = Some x; next = None} in
+    tail.next <- Some node;
     node
 
-
-let is_empty queue = queue.next = End
-
-
-let create_async () =
-    def state(tail) & append(x) = state(add tail x) & relpy to append in
-    let queue = End in
+let spawn_queue () =
+    def state(tail) & add(x) = state(add tail x) & relpy to add in
+    let queue = create () in							  
     spawn state(queue);
-    (queue, append)
+    (queue, add)
