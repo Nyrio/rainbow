@@ -33,7 +33,7 @@ module Make(T:Table) = struct
 
     let search_work table vars =
         let rec aux searching_q =
-            if not Util.Queue.is_empty searching then
+            if not Util.Queue.is_empty searching_q then
                 (* verifier si j'ai le hash dans ma table, si oui verifier si
                    ce n'est pas une fausse alerte*)
                 let (id, col, last), searching_tl = Util.Queue.pop searching_q in
