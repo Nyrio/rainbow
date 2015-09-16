@@ -6,8 +6,9 @@ let master_main cfg =
   Join.Ns.register master "pw_len" cfg.pw_len;
   Join.Ns.register master "hash_fun" cfg.hash_fun;
   Join.Ns.register master "chain_len" cfg.chain_len;
-  Join.Ns.register master "action" cfg.actions;
   Join.Ns.register master "table_file" cfg.table_file;
+  Join.Ns.register master "action" cfg.action;
+  
 
   let wait = if cfg.action = "generate" then
 	       setup_generate cfg
@@ -38,6 +39,9 @@ let slave_main ip port =
     let addr = Unix.ADDR_INET (inet_addr_of_string ip, port) in
     let master = Join.Ns.there addr in
 
+    let action = Join.Ns.lookup master "action" in
+    let table_file = Join.Ns.lookup master "table_file" in
+
     let charset = Join.Ns.lookup master "charset" in
     let pw_len = Join.Ns.lookup master "pw_len" in
     let hash_fun = Join.Ns.lookup master "hash_fun" in
@@ -48,10 +52,28 @@ let slave_main ip port =
         let hash_fun = Hashtbl.get Crypto.hash_funs hash_fun
         let chain_len = chain_len
     end in
-	   
+
     module T = Table.Make(Params) in
-    
 	   
+	   if action = "generate" then
+	     let table = Hashtbl.create 131071 in
+	     let pool = Join.Ns.lookup master "gen_reg" in
+	     let wait = Join.Ns.lookup master "gen_wait" in
+	     
+	     let work seed = Hashtbl.add table (T.full_chain seed) seed in
+	     spawn pool(work);
+
+	     wait ();
+	     T.dump table_file table;
+	     
+	   else if action = "search" then
+	     let table = T.load table_file in
+	     let results = Join.Ns.lookup master "search_results" in
+	     let hashs = Join.Ns.lookup master "hashs" in
+	     let computing_q = Join.Ns.lookup master "computing_q" in
+	     let searching_q = Join.Ns.lookup master "searching_q" in
+	     let searching_q_append = Join.Ns.lookup master "searching_q_append" in
+	     
 	   
 
 let () =
