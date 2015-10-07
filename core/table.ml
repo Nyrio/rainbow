@@ -1,4 +1,4 @@
-type t = {tbl: (string, string) Hashtbl.t;
+type t = {dat: (string, string) Hashtbl.t;
           chain_len: int;
           hash_fun: string -> string;
           rdx_fun: int -> string -> string;
@@ -6,16 +6,16 @@ type t = {tbl: (string, string) Hashtbl.t;
           rdx_fun_id: string}
 
 
-let create chain_len hash_fun_id rdx_fun_id size =
+(*let create chain_len hash_fun_id rdx_fun_id size =
     let hash_fun, h_len = Crypto.make_hash hash_fun_id in
     let rdx_fun = Crypto.make_rdx rdx_fun_id h_len in
     let dat = Hashtbl.create size in
     {dat; chain_len; hash_fun; rdx_fun; hash_fun_id; rdx_fun_id}
-
+*)
 
 let dump tbl file =
     let chan = open_out_gen [Open_creat; Open_append] 6 file in
-    Printf.fprintf chan "%s$%s$%s$%s\n" tbl.chain_len tbl.hash_fun_id
+    Printf.fprintf chan "%i$%s$%s$%i\n" tbl.chain_len tbl.hash_fun_id
                    tbl.rdx_fun_id (Hashtbl.length tbl.dat);
     Hashtbl.iter (Printf.fprintf chan "%s;%s\n") tbl.dat;
     close_out chan
@@ -25,7 +25,7 @@ let dump tbl file =
 let rec load_aux in_chan htbl =
     try
         let line = Scanf.fscanf in_chan "%s\n" (fun x -> x) in
-        let last, first = Scanf.sscanf line "%s;%s" (fun x -> x) (fun x -> x) in
+        let (last, first) = Scanf.sscanf line "%s;%s" (fun x y -> (x,y)) in
         Hashtbl.add htbl last first;
         load_aux in_chan htbl;
     with
@@ -35,16 +35,15 @@ let rec load_aux in_chan htbl =
 let load file =
     let in_chan = open_in file in
 
-    let header = Scanf.fscanf in_chan "%s\n" id' in
+    let header = Scanf.fscanf in_chan "%s\n" (fun x -> x) in
     let chain_len, hash_fun_id, rdx_fun_id, size =
-        let id' x = x in
-        Scanf.sscanf header "%i$%s$%s$%i" id' id' id' id' in
+        Scanf.sscanf header "%i$%s$%s$%i" (fun a b c d -> (a, b, c, d)) in
 
-    let rdx_fun = Crypto.make_rdx rdx_fun_id in
-    let hash_fun = Crypto.make_hash hash_fun_id in
+    let rdx_fun = fun i x -> x(*Crypto.make_rdx rdx_fun_id*) in
+    let hash_fun = fun x -> x(*Crypto.make_hash hash_fun_id*) in
     let dat = Hashtbl.create (2*size) in
 
-    load_all_lines in_chan tbl;
+    load_aux in_chan dat;
 
     {dat; chain_len; hash_fun; rdx_fun; hash_fun_id; rdx_fun_id}
 
@@ -68,10 +67,10 @@ let rec recover_aux tbl hash i seeds = match seeds with
 | [] -> None
 | x :: xs ->
     let pw = tbl.rdx_fun i (chain tbl x 0 i) in
-    if tbl.hash_fun pw = hash then Some pw else recover tbl hash i xs
+    if tbl.hash_fun pw = hash then Some pw else recover_aux tbl hash i xs
 
-let recover tbl hash i =
-    let seeds = Hashtbl.findall tbl.dat in
+let recover tbl hash i last =
+    let seeds = Hashtbl.find_all tbl.dat last in
     recover_aux tbl hash i seeds
 
 
@@ -88,7 +87,7 @@ let rec crack_aux tbl hash i = match i with
 | 0 -> None
 | _ ->
     let last = get_last tbl hash i in
-    let pw = recover tbl hash i in
+    let pw = recover tbl hash i last in
     if pw <> None
         then pw
         else crack_aux tbl hash (i - 1)

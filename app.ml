@@ -1,3 +1,7 @@
+let setup_generate cfg =
+    let (_, hash_size) = Hashtbl.find Crypto.hash_funs cfg.hash_fun in
+    let pool = JoinPool.Simple.create (Crypto.)
+
 let master_main cfg =
     let ip = Join.Site.get_local_addr () in
     let master = Join.Ns.Site.here in
@@ -11,19 +15,19 @@ let master_main cfg =
 
     let wait =
         if cfg.action = "generate" then
-            setup_generate cfg
+            setup_generate master cfg
         else if cfg.action = "search" then
-            setup_generate cfg
+            failwith "unknown action"
+            (*setup_generate cfg*)
         else
             failwith "unknown action" in
 
-    start_slaves ip cfg.slaves cfg.ssh_ident cfg.ssh_user cfg.slave_exec
-                 cfg.master_port cfg.slaves;
+    start_slaves ip cfg.slaves cfg.ssh_user cfg.slave_exec cfg.master_port;
     wait ()
 
 
-let start_slaves ip slaves ssh_ident ssh_user slave_exec master_port =
-  let cmd = (Printf.sprintf "ssh -i %s %s@%%s %s %s:%s" ssh_ident
+let start_slaves ip slaves ssh_user slave_exec master_port =
+  let cmd = (Printf.sprintf "ssh %s@%%s %s %s:%s" ssh_ident
                             ssh_user slave_exec ip master_port) in
   let rec aux cmd slaves = match slaves with
     | [] -> ()
@@ -56,31 +60,34 @@ let slave_main ip port =
     module T = Table.Make(Params) in
 
     if action = "generate" then
-         let table = Hashtbl.create 131071 in
-         let pool = Join.Ns.lookup master "gen_reg" in
-         let wait = Join.Ns.lookup master "gen_wait" in
+        let table = Hashtbl.create 131071 in
+        let pool = Join.Ns.lookup master "gen_reg" in
+        let wait = Join.Ns.lookup master "gen_wait" in
 
-         let work seed = Hashtbl.add table (T.full_chain seed) seed in
-         spawn pool(work);
+        let work seed = Hashtbl.add table (T.full_chain seed) seed in
+        spawn pool(work);
 
-         wait ();
-         T.dump table_file table;
+        wait ();
+        T.dump table_file table;
 
     else if action = "search" then
-         let table = T.load table_file in
-         let results = Join.Ns.lookup master "search_results" in
-         let hashs = Join.Ns.lookup master "hashs" in
-         let computing_q = Join.Ns.lookup master "computing_q" in
-         let searching_q = Join.Ns.lookup master "searching_q" in
-         let searching_q_append = Join.Ns.lookup master "searching_q_append" in
+        failwith "cannot search"
+        (*let table = T.load table_file in
+        let results = Join.Ns.lookup master "search_results" in
+        let hashs = Join.Ns.lookup master "hashs" in
+        let computing_q = Join.Ns.lookup master "computing_q" in
+        let searching_q = Join.Ns.lookup master "searching_q" in
+        let searching_q_append = Join.Ns.lookup master "searching_q_append" in*)
 
+
+let cfg = {charset="abcd0123"; pw_len=4; hash_fun="sha256"; chain_len=50;
+           action="generate"; table_file="abcd0123_4_sha256.tbl";
+           slaves=["127.0.0.1"; "127.0.0.1"]; ssh_user="popeye";
+           slave_exec="/home/popeye/projects/tipe/rainbow/bin/app"; master_port=123456;}
 
 let () =
   let argv = Sys.argv in
-  if (Array.lenght argv <> 3) then
-      usage ()
-  else if argv.(1) = "master" then
-      let cfg = parse_conf argv.(2) in
+  if argv.(1) = "master" then
       master_main cfg
   else if argv.(1) = "slave" then
       let ip, port = Scanf.sscanf Sys.argv.(2) "%s:%i" (fun x -> x) (fun x -> x) in
