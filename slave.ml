@@ -1,6 +1,7 @@
 let start ip port =
-    let addr = Unix.ADDR_INET (inet_addr_of_string ip, port) in
-    let master = Join.Ns.there addr in
+    (*let addr = Unix.ADDR_INET (Unix.inet_addr_of_string ip, port) in
+    let master = Join.Ns.there addr in*)
+    let master = Join.Ns.here in
 
     let tbl_conf = Join.Ns.lookup master "tbl_conf": Master.tbl_conf in
     module TblConf = struct

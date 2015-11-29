@@ -1,0 +1,9 @@
+let rdx_id = ("abcdefghijklmnopqrstuvwxyz", 4)
+let hash_id = "sha-2/256"
+let chain_len = 50
+let chain_num = 400000
+let table_file = "lower_alpha_4_sha2-256.tbl"
+let slaves = ["127.0.0.1"; "127.0.0.1"]
+let ssh_user = "peio"
+let slave_exec = "/home/peio/projects/tipe/rainbow/search.native"
+let master_port = 12345
