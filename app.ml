@@ -1,21 +1,25 @@
-let setup_generate cfg =
-    let (_, hash_size) = Hashtbl.find Crypto.hash_funs cfg.hash_fun in
-    let pool = JoinPool.Simple.create (Crypto.)
+let setup_generate master cfg =
+    let hash_len = Crypto.get_hash_len cfg.hash in
+    let pool = JoinPool.Simple.create (Crypto.rc4seeds hash_size cfg.chain_num)
+                                      (fun () () -> ()) () in
+
+    Join.Ns.register master "gen_reg" pool.register;
+    Join.Ns.register master "gen_wain" pool.wait
+
 
 let master_main cfg =
     let ip = Join.Site.get_local_addr () in
     let master = Join.Ns.Site.here in
 
-    Join.Ns.register master "charset" cfg.charset;
-    Join.Ns.register master "pw_len" cfg.pw_len;
-    Join.Ns.register master "hash_fun" cfg.hash_fun;
+    Join.Ns.register master "hash_f" cfg.hash_f;
+    Join.Ns.register master "rdx_f" cfg.rdx_f;
     Join.Ns.register master "chain_len" cfg.chain_len;
-    Join.Ns.register master "action" cfg.actions;
+    Join.Ns.register master "action" cfg.action;
     Join.Ns.register master "table_file" cfg.table_file;
 
     let wait =
         if cfg.action = "generate" then
-            setup_generate master cfg
+            wait = setup_generate master cfg
         else if cfg.action = "search" then
             failwith "unknown action"
             (*setup_generate cfg*)
@@ -46,21 +50,12 @@ let slave_main ip port =
     let action = Join.Ns.lookup master "action" in
     let table_file = Join.Ns.lookup master "table_file" in
 
-    let charset = Join.Ns.lookup master "charset" in
-    let pw_len = Join.Ns.lookup master "pw_len" in
-    let hash_fun = Join.Ns.lookup master "hash_fun" in
+    let hash_f = Join.Ns.lookup master "hash_f" in
+    let rdx_f = Join.Ns.lookup master "rdx_f" in
     let chain_len = Join.Ns.lookup master "chain_len" in
 
-    module Params = struct
-        let rdx_fun = Crypto.make_rdx charset pw_len
-        let hash_fun = Hashtbl.get Crypto.hash_funs hash_fun
-        let chain_len = chain_len
-    end in
-
-    module T = Table.Make(Params) in
-
     if action = "generate" then
-        let table = Hashtbl.create 131071 in
+        let table = Table.create chain_len hash_f rdx_f 131071 in
         let pool = Join.Ns.lookup master "gen_reg" in
         let wait = Join.Ns.lookup master "gen_wait" in
 
@@ -80,10 +75,11 @@ let slave_main ip port =
         let searching_q_append = Join.Ns.lookup master "searching_q_append" in*)
 
 
-let cfg = {charset="abcd0123"; pw_len=4; hash_fun="sha256"; chain_len=50;
-           action="generate"; table_file="abcd0123_4_sha256.tbl";
-           slaves=["127.0.0.1"; "127.0.0.1"]; ssh_user="popeye";
-           slave_exec="/home/popeye/projects/tipe/rainbow/bin/app"; master_port=123456;}
+let cfg = {rdx_id=("abcd0123", 4); hash_id="sha-2/256"; chain_len=50;
+            action="generate"; table_file="abcd0123_4_sha-2-256.tbl";
+            slaves=["127.0.0.1"; "127.0.0.1"]; ssh_user="popeye";
+            slave_exec="/home/popeye/projects/tipe/rainbow/bin/app";
+            master_port=123456;}
 
 let () =
   let argv = Sys.argv in
