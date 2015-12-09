@@ -37,7 +37,7 @@ let string_init n f =
 
 (** Cree une fonction de reduction qui a un sel et un hash associe une chain
     de longueur [length] de caracteres de [charset]. *)
-let make_rdx_f (charset, pw_len) h_len =
+let make_rdx_f charset pw_len h_len =
     let n_char = String.length charset in
     let init salt h i = charset.[(int_of_char h.[i mod h_len] lxor salt) mod n_char] in
     fun salt h -> string_init pw_len (init salt h)
