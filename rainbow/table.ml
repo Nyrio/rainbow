@@ -30,7 +30,8 @@ module Make (C: TblConfig) = struct
         let in_chan = open_in file in
         let header = read_header in_chan (Buffer.create 16) in
         let chain_len, hash_id, charset, pw_len, size =
-            Scanf.sscanf header "%i\000%s@\000%s@\000%i\000%i\000" (fun a b c d e -> (a, b, c, d, e)) in
+            Scanf.sscanf header "%i\000%s@\000%s@\000%i\000%i\000"
+                         (fun a b c d e -> (a, b, c, d, e)) in
         if not (chain_len = C.chain_len && hash_id = C.hash_id &&
                 charset = C.charset && pw_len = C.pw_len)
         then
@@ -57,9 +58,8 @@ module Make (C: TblConfig) = struct
 
 
     (** Calcule la [n]-ieme iteration de (hash o rdx i) en commencant par
-        [seed] et en incrementant [i] a chaque iteration (ie calcule le
-        contenu de la [i+n]-ieme colonne sachant que la colonne i contient
-        [seed]). *)
+        [seed] et en incrementant [i] a chaque iteration (ie calcule le contenu
+        de la [i+n]-ieme colonne sachant que la colonne i contient [seed]). *)
     let rec chain seed i n = match n with
     | 0 -> seed
     | _ -> chain (hash_f (rdx_f i seed)) (i + 1) (n - 1)
@@ -74,8 +74,8 @@ module Make (C: TblConfig) = struct
         Hashtbl.add tbl last seed
 
 
-    (** Cherche pour chaque [x] dans [seeds] si la reduction du hash de la
-        [i]-ieme colonne en partant de [x] est le pw correspondant a [hash]. *)
+    (** Cherche pour chaque x dans [seeds] si la reduction du hash de la
+        [i]-ieme colonne en partant de x est le pw correspondant a [hash]. *)
     let rec recover_aux hash i seeds = match seeds with
     | [] -> None
     | x :: xs ->
@@ -92,10 +92,10 @@ module Make (C: TblConfig) = struct
 
 
     (** Cherche si [hash] est dans la colonne [i] de la table (ie le pw
-        recherche est la reduction du hash de la colonne [i - 1]).
-        [get_first] est une fonction qui a un hash associe une liste
-        (eventuellement vide) de seeds de chaines dont hash est le dernier
-        element (typiquement [Hashtbl.find_all tbl]). *)
+        recherche est la reduction du hash de la colonne [i - 1]).  [get_first]
+        est une fonction qui a un hash associe une liste (eventuellement vide)
+        de seeds de chaines dont hash est le dernier element (typiquement
+        [Hashtbl.find_all tbl]). *)
     let rec crack_aux tbl hash i = match i with
     | 0 -> None
     | _ ->
