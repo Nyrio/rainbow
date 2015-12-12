@@ -1,4 +1,4 @@
-module type TblConfig = sig
+module type Config = sig
     val chain_len : int
     val hash_id : string
     val charset : string
@@ -6,55 +6,24 @@ module type TblConfig = sig
 end
 
 
-module Make (C: TblConfig) = struct
-    let pw_len = C.pw_len
-    let h_len = Crypto.get_h_len C.hash_id
-    let hash_f = Crypto.make_hash_f C.hash_id
-    let rdx_f = Crypto.make_rdx_f C.charset pw_len h_len
+module type RTParams = sig
+    type key
+    type cipher
+    val chain_len : int
+    val hash_f : key -> cipher
+    val rdx_f : int -> cipher -> key
+end
 
 
-    type t = Hashtbl.t
+module Make (P: RTParams) = struct
+    open P
+
+
+    type t = (cipher, cipher) Hashtbl.t
 
 
     (** Create a new empty rainbow table. *)
     let create size = Hashtbl.create size
-
-
-    let rec read_header_aux in_chan buf = match input_char in_chan with
-    | '\n' -> Buffer.contents buf
-    | c -> Buffer.add_char buf c; read_header_aux in_chan buf
-
-
-    (** Load a rainbow table from file (checks configuration missmatch). *)
-    let load file ?(tbl=Hashtbl.create 1000) =
-        let in_chan = open_in file in
-        let header = read_header in_chan (Buffer.create 16) in
-        let chain_len, hash_id, charset, pw_len, size =
-            Scanf.sscanf header "%i\000%s@\000%s@\000%i\000%i\000"
-                         (fun a b c d e -> (a, b, c, d, e)) in
-        if not (chain_len = C.chain_len && hash_id = C.hash_id &&
-                charset = C.charset && pw_len = C.pw_len)
-        then
-            close_in in_chan;
-            raise Value_error
-        else
-            for i = 0 to size - 1 do
-                let last, first = String.create h_len, String.create h_len in
-                really_input in_chan last 0 h_len;
-                really_input in_chan first 0 h_len;
-                Hashtbl.add tbl last first;
-            done;
-            close_in in_chan;
-            tbl
-
-
-    (** Dump a rainbow table to file. *)
-    let dump tbl file =
-        let chan = open_out file in
-        Printf.fprintf chan "%i\000%s\000%s\000%i\000%i\000\n" C.chain_len
-                       C.hash_id C.charset C.pw_len (Hashtbl.length tbl);
-        Hashtbl.iter (fun k v -> output_string chan (k^v)) tbl.dat;
-        close_out chan
 
 
     (** Calcule la [n]-ieme iteration de (hash o rdx i) en commencant par
@@ -69,9 +38,7 @@ module Make (C: TblConfig) = struct
     let full_chain seed = chain seed 0 (chain_len - 1)
 
 
-    let add_chain tbl seed =
-        let last = full_chain seed in
-        Hashtbl.add tbl last seed
+    let add_chain tbl seed = Hashtbl.add tbl (full_chain seed) seed
 
 
     (** Cherche pour chaque x dans [seeds] si la reduction du hash de la
@@ -107,4 +74,55 @@ module Make (C: TblConfig) = struct
 
     (** Cherche  le pw correspondant a [hash]. *)
     let crack tbl hash = crack_aux tbl hash (chain_len - 1)
+end
+
+
+module MakeSimple (C: Config) = struct
+    let pw_len = C.pw_len
+    let h_len = Crypto.get_h_len C.hash_id
+
+    include Make(struct
+        type key = string
+        type cipher = string
+        let chain_len = C.chain_len
+        let hash_f = Crypto.make_hash_f C.hash_id
+        let rdx_f = Crypto.make_rdx_f C.charset pw_len h_len
+    end)
+
+
+    let rec read_header_aux in_chan buf = match input_char in_chan with
+    | '\n' -> Buffer.contents buf
+    | c -> Buffer.add_char buf c; read_header_aux in_chan buf
+
+
+    (** Load a rainbow table from file (checks configuration missmatch). *)
+    let load file ?(tbl=Hashtbl.create 1000) =
+        let in_chan = open_in file in
+        let header = read_header in_chan (Buffer.create 16) in
+        let chain_len', hash_id, charset, pw_len, size =
+            Scanf.sscanf header "%i\000%s@\000%s@\000%i\000%i\000"
+                         (fun a b c d e -> (a, b, c, d, e)) in
+        if not (chain_len' = chain_len && hash_id = C.hash_id &&
+                charset = C.charset && pw_len = C.pw_len)
+        then
+            close_in in_chan;
+            raise Value_error
+        else
+            for i = 0 to size - 1 do
+                let last, first = String.create h_len, String.create h_len in
+                really_input in_chan last 0 h_len;
+                really_input in_chan first 0 h_len;
+                Hashtbl.add tbl last first;
+            done;
+            close_in in_chan;
+            tbl
+
+
+    (** Dump a rainbow table to file. *)
+    let dump tbl file =
+        let chan = open_out file in
+        Printf.fprintf chan "%i\000%s\000%s\000%i\000%i\000\n" chain_len
+                       C.hash_id C.charset C.pw_len (Hashtbl.length tbl);
+        Hashtbl.iter (fun k v -> output_string chan (k^v)) tbl.dat;
+        close_out chan
 end
